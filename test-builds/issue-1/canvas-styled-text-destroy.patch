@@ -1,0 +1,49 @@
+diff --git a/src/milodb/client/view/gui/widgets/canvas_widgets.py b/src/milodb/client/view/gui/widgets/canvas_widgets.py
+index 5185565..00fdc10 100644
+--- a/src/milodb/client/view/gui/widgets/canvas_widgets.py
++++ b/src/milodb/client/view/gui/widgets/canvas_widgets.py
+@@ -161,8 +161,8 @@ class CanvasStyledText:
+         self._font_line_height: int = get_font_of_themed_widget(canvas, self._text_widget).metrics('linespace')
+         self._bounds: MutableBounds = MutableBounds(origin_x, origin_y, origin_x + width, origin_y + self._text_widget.display_line_count * self._font_line_height)
+ 
+-        self._list_of_bindings: Sequence[str] = [
+-            self._text_widget.bind(StyledText.DISPLAY_LINE_COUNT_CHANGED_BINDING, self._on_display_line_count_changed),
++        self._list_of_bindings: Sequence[tuple[str, str]] = [
++            (StyledText.DISPLAY_LINE_COUNT_CHANGED_BINDING, self._text_widget.bind(StyledText.DISPLAY_LINE_COUNT_CHANGED_BINDING, self._on_display_line_count_changed)),
+         ]
+ 
+         self._window_widget_id: WidgetId = canvas.create_window(
+@@ -182,10 +182,13 @@ class CanvasStyledText:
+         return self._text_widget.display_line_count
+ 
+     def destroy(self) -> None:
+-        binding: str
+-        for binding in self._list_of_bindings:
+-            self._text_widget.unbind(binding)
++        sequence: str
++        funcid: str
++        for sequence, funcid in self._list_of_bindings:
++            self._text_widget.unbind(sequence, funcid)
+         self._canvas.delete(self._window_widget_id)
++        # Deleting the canvas window item only unmaps the embedded widget; this wrapper owns it
++        self._text_widget.destroy()
+ 
+     def move_to(self, *, left: int | None = None, top: int | None = None) -> None:
+         if left is None and top is None:
+diff --git a/src/milodb/client/view/gui/widgets/styled_text.py b/src/milodb/client/view/gui/widgets/styled_text.py
+index 4323bed..b25cf1b 100644
+--- a/src/milodb/client/view/gui/widgets/styled_text.py
++++ b/src/milodb/client/view/gui/widgets/styled_text.py
+@@ -96,6 +96,12 @@ class StyledText(tk.Text):
+     def update_height_to_fit_text(self) -> None:
+         self._on_size_changed(None)
+ 
++    def destroy(self) -> None:
++        if self._change_theme_event_id is not None:
++            self.after_cancel(self._change_theme_event_id)
++            self._change_theme_event_id = None
++        super().destroy()
++
+     def _on_theme_changed(self, _event: object) -> None:
+         if self._change_theme_event_id is None:
+             self._change_theme_event_id = self.after_idle(self._on_idle_update_theme)
